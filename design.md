@@ -1,38 +1,44 @@
-﻿# Workshop 2: GIS for Intermunicipal Transportation
+﻿# Taller 2: SIG para transporte intermunicipal
 
-## 1. Purpose
-The system manages buses and parking facilities in Cundinamarca, Colombia. It displays parking locations, available spaces, parked buses, departure times, and driver service schedules. Bus locations are updated from administrator-recorded parking arrivals and departures; real-time GPS tracking is outside the project scope.
+## 1. Propósito
+El sistema permite administrar buses y parqueaderos de una empresa de transporte intermunicipal en Cundinamarca, Colombia. Muestra la ubicación de los parqueaderos, los espacios disponibles, los buses estacionados, las salidas previstas y los horarios de servicio de los conductores. La ubicación de cada bus se actualiza cuando el administrador registra su llegada o salida; el sistema no realiza seguimiento GPS en tiempo real.
 
-## 2. Functional requirements
-- Register buses, drivers, trips, parking facilities, parking arrivals/departures, and driver schedules.
-- Record each trip's origin, destination, departure time, arrival time, and each parking stay's expected dwell time.
-- Show parking facilities on a dynamic OpenStreetMap-based map.
-- Show each facility's capacity, available spaces, parked buses, planned departures, and driver schedules.
-- Reject arrivals if the facility has no available spaces.
+## 2. Requisitos funcionales
+- Registrar buses, conductores, viajes, parqueaderos, llegadas, salidas y horarios de servicio desde la aplicación.
+- Guardar el origen, el destino, la hora de salida y la hora de llegada de cada viaje, además de la hora prevista de salida del parqueadero.
+- Mostrar los parqueaderos sobre un mapa dinámico basado en OpenStreetMap.
+- Mostrar capacidad, espacios disponibles, placas de buses estacionados, salidas previstas y los horarios de conductores asignados a buses estacionados.
+- Calcular los asientos disponibles de cada viaje a partir de la capacidad del bus y los asientos ocupados.
+- Calcular y dibujar rutas viales entre ubicaciones seleccionadas.
+- Rechazar llegadas cuando el parqueadero está lleno o el bus ya tiene una estadía activa.
 
-## 3. 4+1 architectural views
-### Logical view
-Core entities are Bus, Driver, Trip, ParkingLot, ParkingStay, and DriverSchedule. A trip links a bus and driver to an origin, destination, and planned times. A parking stay records a bus's arrival, scheduled departure, and actual departure at one facility. The most recent open parking stay identifies a bus's current recorded location.
+## 3. Modelo de vistas arquitectónicas 4+1
 
-### Development view
-The solution has a browser-based map, a Flask REST API, and PostgreSQL with PostGIS. The browser renders OpenStreetMap tiles with Leaflet. The API serves parking lot data and is the application boundary for future administrator forms. SQL constraints enforce valid capacities and time intervals.
+### Vista lógica
+Las entidades principales son Bus, Conductor, Viaje, Parqueadero, Estadía de parqueo y Horario de servicio. Un viaje relaciona un bus y un conductor con un origen, un destino y sus horarios. Una estadía registra la llegada del bus a un parqueadero, su hora prevista de salida y la salida real. La estadía abierta más reciente indica la ubicación registrada del bus.
 
-### Process view
-An administrator records a bus arrival and planned departure. The API verifies the lot has space and creates an open parking stay. The map refreshes and displays the updated occupancy. On departure, the administrator closes the stay; the map then shows the newly available space. This is event-based location reporting, not live tracking.
+### Vista de desarrollo
+La solución incluye una aplicación web, una API REST en Flask y una base de datos PostgreSQL con PostGIS. El navegador muestra el mapa con Leaflet y los mosaicos de OpenStreetMap. Para cada viaje, la aplicación solicita a OSRM una ruta de conducción y guarda su geometría GeoJSON en la base de datos.
 
-### Physical view
-A web server hosts the Flask application and serves the map. PostgreSQL/PostGIS stores operational and geographic data. Users connect from a browser over the company network or internet. OpenStreetMap supplies the base map tiles; an internet connection is required to load them.
+### Vista de procesos
+El administrador registra un bus y un conductor, crea un viaje y registra la llegada del bus al parqueadero elegido. El sistema comprueba que haya espacio y guarda la estadía. Al registrar la salida, cierra la estadía y actualiza la disponibilidad del parqueadero. La ubicación es por eventos registrados, no por seguimiento GPS.
 
-### Scenario (+1)
-A bus arrives at Villeta. The parking administrator records its arrival and scheduled departure. The API checks capacity and stores the parking stay. The map marker reports Villeta's remaining spaces and includes the bus and its scheduled departure. When the bus leaves, the administrator records the departure and the map updates the count.
+### Vista física
+Un servidor aloja la aplicación Flask y PostgreSQL/PostGIS. Los usuarios acceden desde un navegador. OpenStreetMap proporciona el mapa base y OSRM calcula las rutas; para usar ambos servicios se necesita conexión a internet.
 
-## 4. Data model and geographic data
-The database schema and seed data are in `database.sql`. Geographic points use EPSG:4326. PostGIS `ST_MakePoint` expects longitude first, latitude second. The 21 workshop facilities have a combined capacity of 60 buses.
+### Escenario (+1)
+Un bus llega al parqueadero de Villeta. El administrador selecciona el bus y registra la llegada y la hora prevista de salida. El sistema verifica la capacidad, actualiza los espacios disponibles y muestra la placa en el marcador de Villeta. Al registrar un viaje entre dos puntos, el sistema obtiene y dibuja la ruta vial, muestra su distancia estimada y crea el horario de servicio del conductor asociado.
 
-## 5. Prototype run instructions
-1. Create a PostgreSQL database, then run `database.sql` against it.
-2. Install dependencies with `pip install -r requirements.txt`.
-3. Set `DATABASE_URL`, for example `postgresql://postgres:password@localhost:5432/transport_gis`.
-4. Run `python app.py` and open `http://127.0.0.1:5000`.
+## 4. Base de datos y datos geográficos
+El esquema y los datos iniciales están en `database.sql`. Las coordenadas se guardan en EPSG:4326. PostGIS recibe primero longitud y luego latitud al usar `ST_MakePoint`; en el formulario del viaje se escriben por separado como latitud y longitud. El taller proporciona 21 parqueaderos con capacidad total para 60 buses.
 
-The prototype map reads the seeded parking facilities from PostGIS. The schema includes the trip, bus, driver, parking stay, and driver schedule structures needed for the full system; the demonstration UI focuses on the map and lot occupancy.
+## 5. Ejecución del prototipo
+1. Crear una base de datos PostgreSQL con PostGIS y ejecutar todo `database.sql`. Si se creó la base con una versión anterior del proyecto, volver a ejecutar el archivo actualizado para agregar los campos de ruta y asientos.
+2. Instalar las dependencias con `pip install -r requirements.txt`.
+3. Configurar `DATABASE_URL` con la conexión a PostgreSQL. En PowerShell: `$env:DATABASE_URL = "postgresql://postgres:TU_CLAVE@localhost:5432/transport_gis"`.
+4. Ejecutar `python app.py` y abrir `http://127.0.0.1:5000`.
+
+## 6. Uso y alcance
+La interfaz está en español. Permite registrar buses y conductores, crear viajes seleccionando ciudades/parqueaderos de origen y destino de una lista, consultar la ruta vial en el mapa, y registrar las llegadas y salidas de buses en los parqueaderos. Al seleccionar el origen y destino del viaje, las coordenadas se completan automáticamente. Cada operación muestra una confirmación visible si se guardó correctamente o un aviso de error si no se pudo completar. La distancia y el tiempo estimado de una ruta se presentan en tarjetas destacadas. El formulario de viaje guarda la geometría y la distancia/tiempo estimados de OSRM. El mapa muestra buses estacionados, espacios disponibles, salidas próximas y horarios de conductores asociados a los buses estacionados. La lista de viajes y sus marcadores muestran los asientos disponibles.
+
+La ruta y el tiempo son estimaciones basadas en la red vial de OpenStreetMap y no consideran tráfico en tiempo real. Los asientos disponibles se calculan con el número de asientos ocupados que se registra en cada viaje. Las coordenadas del viaje deben corresponder a ubicaciones de Cundinamarca.

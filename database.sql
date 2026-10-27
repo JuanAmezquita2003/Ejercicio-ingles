@@ -26,10 +26,24 @@ CREATE TABLE IF NOT EXISTS trip (
     driver_id INTEGER NOT NULL REFERENCES driver(driver_id),
     origin VARCHAR(120) NOT NULL,
     destination VARCHAR(120) NOT NULL,
+    origin_location GEOGRAPHY(POINT, 4326),
+    destination_location GEOGRAPHY(POINT, 4326),
     departure_time TIMESTAMP NOT NULL,
     arrival_time TIMESTAMP NOT NULL,
+    seats_booked INTEGER NOT NULL DEFAULT 0 CHECK (seats_booked >= 0),
+    route_geometry GEOMETRY(LINESTRING, 4326),
+    route_distance_m DOUBLE PRECISION,
+    route_duration_s DOUBLE PRECISION,
     CHECK (arrival_time > departure_time)
 );
+
+-- Actualiza bases creadas con una versión anterior del proyecto.
+ALTER TABLE trip ADD COLUMN IF NOT EXISTS origin_location GEOGRAPHY(POINT, 4326);
+ALTER TABLE trip ADD COLUMN IF NOT EXISTS destination_location GEOGRAPHY(POINT, 4326);
+ALTER TABLE trip ADD COLUMN IF NOT EXISTS seats_booked INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE trip ADD COLUMN IF NOT EXISTS route_geometry GEOMETRY(LINESTRING, 4326);
+ALTER TABLE trip ADD COLUMN IF NOT EXISTS route_distance_m DOUBLE PRECISION;
+ALTER TABLE trip ADD COLUMN IF NOT EXISTS route_duration_s DOUBLE PRECISION;
 
 CREATE TABLE IF NOT EXISTS parking_stay (
     parking_stay_id SERIAL PRIMARY KEY,
@@ -42,7 +56,7 @@ CREATE TABLE IF NOT EXISTS parking_stay (
     CHECK (actual_departure_time IS NULL OR actual_departure_time >= arrival_time)
 );
 
--- A bus may have only one open parking stay at a time.
+-- Un bus solo puede tener una estadía de parqueo abierta a la vez.
 CREATE UNIQUE INDEX IF NOT EXISTS one_open_stay_per_bus
     ON parking_stay (bus_id) WHERE actual_departure_time IS NULL;
 CREATE INDEX IF NOT EXISTS parking_stay_lot_open_idx
@@ -57,7 +71,7 @@ CREATE TABLE IF NOT EXISTS driver_schedule (
     CHECK (service_end > service_start)
 );
 
--- Coordinates in source table are latitude, longitude; PostGIS point order is longitude, latitude.
+-- La tabla fuente da latitud, longitud; PostGIS recibe primero longitud y luego latitud.
 INSERT INTO parking_lot (municipality, capacity, location) VALUES
 ('Chocontá', 2, ST_SetSRID(ST_MakePoint(-73.687044, 5.146678),4326)::geography),
 ('Tibiritá', 3, ST_SetSRID(ST_MakePoint(-73.504577, 5.051490),4326)::geography),
@@ -84,8 +98,9 @@ ON CONFLICT (municipality) DO UPDATE SET
     capacity = EXCLUDED.capacity,
     location = EXCLUDED.location;
 
--- Available spaces per lot:
+-- Consulta de espacios disponibles por parqueadero:
 -- SELECT p.parking_lot_id, p.municipality, p.capacity - COUNT(s.*) AS available_spaces
 -- FROM parking_lot p LEFT JOIN parking_stay s
 --   ON s.parking_lot_id = p.parking_lot_id AND s.actual_departure_time IS NULL
 -- GROUP BY p.parking_lot_id, p.municipality, p.capacity;
+
